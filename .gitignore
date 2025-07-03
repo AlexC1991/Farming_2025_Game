@@ -1,0 +1,14 @@
+echo # Unity generated files > .gitignore
+echo /[Ll]ibrary/ >> .gitignore
+echo /[Tt]emp/ >> .gitignore
+echo /[Oo]bj/ >> .gitignore
+echo /[Bb]uild/ >> .gitignore
+echo /[Bb]uilds/ >> .gitignore
+echo /[Ll]ogs/ >> .gitignore
+echo /[Mm]emoryCaptures/ >> .gitignore
+echo /[Uu]ser[Ss]ettings/ >> .gitignore
+echo *.tmp >> .gitignore
+echo *.user >> .gitignore
+echo *.userprefs >> .gitignore
+echo *.pidb >> .gitignore
+echo *.booproj >> .gitignore
