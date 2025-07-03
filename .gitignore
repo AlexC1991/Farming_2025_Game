@@ -1,14 +1,44 @@
-echo # Unity generated files > .gitignore
-echo /[Ll]ibrary/ >> .gitignore
-echo /[Tt]emp/ >> .gitignore
-echo /[Oo]bj/ >> .gitignore
-echo /[Bb]uild/ >> .gitignore
-echo /[Bb]uilds/ >> .gitignore
-echo /[Ll]ogs/ >> .gitignore
-echo /[Mm]emoryCaptures/ >> .gitignore
-echo /[Uu]ser[Ss]ettings/ >> .gitignore
-echo *.tmp >> .gitignore
-echo *.user >> .gitignore
-echo *.userprefs >> .gitignore
-echo *.pidb >> .gitignore
-echo *.booproj >> .gitignore
+# Unity generated files
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Mm]emoryCaptures/
+/[Uu]ser[Ss]ettings/
+/[Aa]uto[Ss]aves/
+
+# Visual Studio / MonoDevelop generated
+.vs/
+.vscode/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity3D generated meta files
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# Unity3D generated file on crash reports
+sysinfo.txt
+
+# Builds
+*.apk
+*.unitypackage
+*.app
+
+# IDE
+.idea/
