@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 4138c8f19d6b7374b9dab268895c832a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 304416
+  packageName: Procedural Stylized Sky
+  packageVersion: 1.11
+  assetPath: Assets/Procedular Stylized Skybox/Material/SkyStylized_URP_Sample.mat
+  uploadId: 734600

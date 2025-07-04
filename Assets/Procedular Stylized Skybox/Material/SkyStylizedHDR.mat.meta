@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 8245e1ef493143148936ec63f7bb8cc2
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 304416
+  packageName: Procedural Stylized Sky
+  packageVersion: 1.11
+  assetPath: Assets/Procedular Stylized Skybox/Material/SkyStylizedHDR.mat
+  uploadId: 734600

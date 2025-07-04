@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: d02e691520ab940ca80be457724cc562
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 302225
+  packageName: Stylized watercraft pack
+  packageVersion: 1.0
+  assetPath: Assets/Stylized watercraft pack/Shader water/Shaders/Lighting.hlsl
+  uploadId: 710217

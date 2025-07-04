@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: c8f4cdbf6e5d9344e80195a7cebd3ee9
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 304416
+  packageName: Procedural Stylized Sky
+  packageVersion: 1.11
+  assetPath: Assets/Procedular Stylized Skybox/Script/DayNightCycle.cs
+  uploadId: 734600

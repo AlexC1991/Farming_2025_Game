@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: a41513b6466a5f7428040003529ae343
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  preprocessorOverride: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 304416
+  packageName: Procedural Stylized Sky
+  packageVersion: 1.11
+  assetPath: Assets/Procedular Stylized Skybox/Shader/SkyBoxShader.shader
+  uploadId: 734600

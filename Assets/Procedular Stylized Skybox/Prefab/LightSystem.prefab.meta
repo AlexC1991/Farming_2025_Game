@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 32871c0b982764e4ba17578251a43036
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 304416
+  packageName: Procedural Stylized Sky
+  packageVersion: 1.11
+  assetPath: Assets/Procedular Stylized Skybox/Prefab/LightSystem.prefab
+  uploadId: 734600

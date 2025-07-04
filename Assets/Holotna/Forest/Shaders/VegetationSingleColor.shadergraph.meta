@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 059b4bdc6a3f3d1419367a365fecfd96
+ScriptedImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 2
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+  script: {fileID: 11500000, guid: 625f186215c104763be7675aa2d941aa, type: 3}
+AssetOrigin:
+  serializedVersion: 1
+  productId: 294436
+  packageName: Forest - Stylized Fantasy Environment
+  packageVersion: 1.5
+  assetPath: Assets/Holotna/Forest/Shaders/VegetationSingleColor.shadergraph
+  uploadId: 738201

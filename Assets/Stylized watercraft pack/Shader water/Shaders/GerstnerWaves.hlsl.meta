@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 2c87b840851a04124970a8163dd70348
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 302225
+  packageName: Stylized watercraft pack
+  packageVersion: 1.0
+  assetPath: Assets/Stylized watercraft pack/Shader water/Shaders/GerstnerWaves.hlsl
+  uploadId: 710217

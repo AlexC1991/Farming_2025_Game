@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 0247f05279f73154c9fbfbd683f91d70
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 304416
+  packageName: Procedural Stylized Sky
+  packageVersion: 1.11
+  assetPath: Assets/Procedular Stylized Skybox/Shader/Editor/SkyBoxShaderEditor.cs
+  uploadId: 734600

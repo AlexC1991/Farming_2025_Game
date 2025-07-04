@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 39d6aa03292c84520b3da93e241f1422
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 302225
+  packageName: Stylized watercraft pack
+  packageVersion: 1.0
+  assetPath: Assets/Stylized watercraft pack/Shader water/Shaders/Scripts/BuoyantObject.cs
+  uploadId: 710217

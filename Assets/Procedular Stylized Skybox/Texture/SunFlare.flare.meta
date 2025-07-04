@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: d2c240c09e37fbe4588cf1d707746fec
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 12100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 304416
+  packageName: Procedural Stylized Sky
+  packageVersion: 1.11
+  assetPath: Assets/Procedular Stylized Skybox/Texture/SunFlare.flare
+  uploadId: 734600

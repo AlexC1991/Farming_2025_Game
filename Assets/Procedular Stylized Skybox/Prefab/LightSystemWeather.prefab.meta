@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 15a0d9f5ba7902a468b81fede2624395
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 304416
+  packageName: Procedural Stylized Sky
+  packageVersion: 1.11
+  assetPath: Assets/Procedular Stylized Skybox/Prefab/LightSystemWeather.prefab
+  uploadId: 734600

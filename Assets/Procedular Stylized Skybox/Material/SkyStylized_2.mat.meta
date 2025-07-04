@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: bbeb14857ec30fc4ead094816d6e3264
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 304416
+  packageName: Procedural Stylized Sky
+  packageVersion: 1.11
+  assetPath: Assets/Procedular Stylized Skybox/Material/SkyStylized_2.mat
+  uploadId: 734600
