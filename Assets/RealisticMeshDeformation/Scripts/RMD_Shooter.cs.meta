@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: f354094d53a33204787c85df111b6e8a
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 229669
+  packageName: Realistic Mesh Deformation
+  packageVersion: 1.2
+  assetPath: Assets/RealisticMeshDeformation/Scripts/RMD_Shooter.cs
+  uploadId: 761586

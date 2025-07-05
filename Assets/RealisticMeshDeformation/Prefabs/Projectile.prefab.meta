@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 1ec686736848e9c49968344ad38d2426
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 229669
+  packageName: Realistic Mesh Deformation
+  packageVersion: 1.2
+  assetPath: Assets/RealisticMeshDeformation/Prefabs/Projectile.prefab
+  uploadId: 761586
