@@ -1,71 +1,176 @@
 using UnityEngine;
 
+[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider))]
 public class GroundDeformation : MonoBehaviour
 {
+    [Header("Mesh Generation")]
+    public int meshResolution = 32;
+    public float meshSize = 5f;
+    
     [Header("Deformation Settings")]
-    public float impactForce = 800f;
-    public float impactRadius = 0.5f;
-    public LayerMask toolLayerMask = -1; // What layers count as "tools"
+    public float deformationStrength = 0.5f;
+    public float deformationRadius = 1.0f;
+    public AnimationCurve deformationFalloff = AnimationCurve.Linear(0, 1, 1, 0);
+    
+    [Header("Visual Settings")]
+    public Material mudMaterial;
+    public Color baseColor = new Color(0.6f, 0.4f, 0.2f, 1f);
+    public Color deformedColor = new Color(0.3f, 0.2f, 0.1f, 1f);
     
     [Header("Mouse Controls")]
     public bool enableMouseDeformation = true;
     public KeyCode deformationKey = KeyCode.Mouse0;
     
-    [Header("Visual Painting")]
-    public bool enablePainting = true;
-    public Color paintColor = Color.red;
-    public float paintRadius = 1.0f;
+    [Header("Debug")]
+    [Space]
+    [Button("Regenerate Mesh")]
+    public bool regenerateMesh;
     
-    private RMD_Deformation rmdComponent;
-    private Mesh originalMesh;
+    private Mesh proceduralMesh;
+    private Vector3[] originalVertices;
+    private Vector3[] currentVertices;
     private Color[] vertexColors;
+    private int[] triangles;
+    private Vector2[] uvs;
+    
+    private MeshFilter meshFilter;
+    private MeshRenderer meshRenderer;
+    private MeshCollider meshCollider;
     
     void Start()
     {
-        // Get the RMD component
-        rmdComponent = GetComponent<RMD_Deformation>();
-        if (rmdComponent == null)
+        InitializeComponents();
+        GenerateGroundMesh();
+    }
+    
+    void OnValidate()
+    {
+        if (regenerateMesh)
         {
-            Debug.LogError("RMD_Deformation component not found! Please add it to this GameObject.");
-        }
-        
-        // Initialize vertex painting system
-        if (enablePainting)
-        {
-            InitializeVertexPainting();
+            regenerateMesh = false;
+            if (Application.isPlaying)
+            {
+                GenerateGroundMesh();
+            }
         }
     }
     
-    void InitializeVertexPainting()
+    void InitializeComponents()
     {
-        MeshFilter meshFilter = GetComponent<MeshFilter>();
-        if (meshFilter != null && meshFilter.mesh != null)
+        meshFilter = GetComponent<MeshFilter>();
+        meshRenderer = GetComponent<MeshRenderer>();
+        meshCollider = GetComponent<MeshCollider>();
+        
+        if (mudMaterial != null)
         {
-            originalMesh = meshFilter.mesh;
-            
-            // Initialize vertex colors array
-            vertexColors = new Color[originalMesh.vertexCount];
-            
-            // Set all vertices to white initially (or whatever base color you want)
-            for (int i = 0; i < vertexColors.Length; i++)
+            meshRenderer.material = mudMaterial;
+        }
+    }
+    
+    void GenerateGroundMesh()
+    {
+        proceduralMesh = new Mesh();
+        proceduralMesh.name = "DeformableGround";
+        proceduralMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+        
+        // Calculate vertex count for single surface
+        int vertexCount = (meshResolution + 1) * (meshResolution + 1);
+        
+        // Initialize arrays
+        originalVertices = new Vector3[vertexCount];
+        currentVertices = new Vector3[vertexCount];
+        vertexColors = new Color[vertexCount];
+        uvs = new Vector2[vertexCount];
+        
+        // Generate vertices for single horizontal surface
+        for (int z = 0; z <= meshResolution; z++)
+        {
+            for (int x = 0; x <= meshResolution; x++)
             {
-                vertexColors[i] = Color.white;
+                int index = z * (meshResolution + 1) + x;
+                
+                // Generate vertices in LOCAL space from -meshSize/2 to +meshSize/2
+                float xPos = ((float)x / meshResolution - 0.5f) * meshSize;
+                float zPos = ((float)z / meshResolution - 0.5f) * meshSize;
+                
+                // Single horizontal surface at Y = 0
+                originalVertices[index] = new Vector3(xPos, 0f, zPos);
+                currentVertices[index] = originalVertices[index];
+                vertexColors[index] = baseColor;
+                uvs[index] = new Vector2((float)x / meshResolution, (float)z / meshResolution);
             }
-            
-            // Apply initial colors to mesh
-            originalMesh.colors = vertexColors;
-            
-            Debug.Log($"Initialized vertex painting with {vertexColors.Length} vertices");
         }
-        else
+        
+        GenerateTriangles();
+        
+        // Apply to mesh
+        proceduralMesh.vertices = currentVertices;
+        proceduralMesh.triangles = triangles;
+        proceduralMesh.uv = uvs;
+        proceduralMesh.colors = vertexColors;
+        proceduralMesh.RecalculateNormals();
+        proceduralMesh.RecalculateBounds();
+        
+        // Assign to components
+        meshFilter.mesh = proceduralMesh;
+        meshCollider.sharedMesh = proceduralMesh;
+        
+        Debug.Log($"Generated ground mesh with {vertexCount} vertices and {triangles.Length/3} triangles");
+        Debug.Log($"Mesh bounds: {proceduralMesh.bounds}");
+    }
+    
+    void GenerateTriangles()
+    {
+        int triangleCount = meshResolution * meshResolution * 6; // 6 indices per quad
+        triangles = new int[triangleCount];
+        int triangleIndex = 0;
+        
+        // Generate triangles for single surface
+        for (int y = 0; y < meshResolution; y++)
         {
-            Debug.LogError("No MeshFilter or Mesh found for vertex painting!");
+            for (int x = 0; x < meshResolution; x++)
+            {
+                int bottomLeft = y * (meshResolution + 1) + x;
+                int bottomRight = bottomLeft + 1;
+                int topLeft = bottomLeft + (meshResolution + 1);
+                int topRight = topLeft + 1;
+                
+                // First triangle (counter-clockwise for upward facing)
+                triangles[triangleIndex] = bottomLeft;
+                triangles[triangleIndex + 1] = topLeft;
+                triangles[triangleIndex + 2] = topRight;
+                
+                // Second triangle
+                triangles[triangleIndex + 3] = bottomLeft;
+                triangles[triangleIndex + 4] = topRight;
+                triangles[triangleIndex + 5] = bottomRight;
+                
+                triangleIndex += 6;
+            }
         }
+    }
+    
+    void UpdateMesh()
+    {
+        if (proceduralMesh == null)
+        {
+            Debug.LogError("Procedural mesh is null! Regenerating...");
+            GenerateGroundMesh();
+            return;
+        }
+        
+        proceduralMesh.vertices = currentVertices;
+        proceduralMesh.colors = vertexColors;
+        proceduralMesh.RecalculateNormals();
+        proceduralMesh.RecalculateBounds();
+        
+        meshFilter.mesh = proceduralMesh;
+        meshCollider.sharedMesh = null;
+        meshCollider.sharedMesh = proceduralMesh;
     }
     
     void Update()
     {
-        // Handle mouse-based deformation for testing
         if (enableMouseDeformation && Input.GetKey(deformationKey))
         {
             HandleMouseDeformation();
@@ -81,135 +186,121 @@ public class GroundDeformation : MonoBehaviour
         {
             if (hit.collider.gameObject == gameObject)
             {
-                // Create impact at mouse position
-                CreateImpactAtPosition(hit.point, hit.normal, impactForce);
+                Vector3 localHitPoint = transform.InverseTransformPoint(hit.point);
+                DeformAtPosition(localHitPoint);
             }
         }
     }
     
-    public void CreateImpactAtPosition(Vector3 worldPosition, Vector3 normal, float force)
+    public void DeformAtPosition(Vector3 localPosition)
     {
-        // Paint on the mesh where impact occurs
-        if (enablePainting)
+        bool meshChanged = false;
+        
+        for (int i = 0; i < currentVertices.Length; i++)
         {
-            PaintAtPosition(worldPosition);
-        }
-        
-        // Create a temporary impact object that will trigger RMD deformation
-        GameObject impactObj = new GameObject("GroundImpact");
-        impactObj.transform.position = worldPosition + normal * 2f; // Higher starting position
-        
-        // Add sphere collider for impact area - make it bigger like your test sphere
-        SphereCollider sphereCol = impactObj.AddComponent<SphereCollider>();
-        sphereCol.radius = 0.5f; // Same size as your test sphere
-        sphereCol.isTrigger = false;
-        
-        // Add rigidbody with similar settings to your successful sphere
-        Rigidbody rb = impactObj.AddComponent<Rigidbody>();
-        rb.mass = 1f; // Standard mass like your test sphere
-        rb.linearDamping = 0f; // No drag for maximum impact
-        rb.angularDamping = 0f; // No angular drag
-        
-        // Apply much stronger impact force - simulate a heavy falling object
-        rb.AddForce(-normal * 1000f, ForceMode.Impulse); // Much stronger force
-        
-        // Destroy the impact object after collision
-        Destroy(impactObj, 3.0f); // Give it more time to settle
-    }
-    
-    void PaintAtPosition(Vector3 worldPosition)
-    {
-        if (originalMesh == null || vertexColors == null) return;
-        
-        Vector3 localPosition = transform.InverseTransformPoint(worldPosition);
-        Vector3[] vertices = originalMesh.vertices;
-        
-        bool anyVertexPainted = false;
-        
-        // Check each vertex and paint if within radius
-        for (int i = 0; i < vertices.Length; i++)
-        {
-            float distance = Vector3.Distance(vertices[i], localPosition);
+            // Calculate distance in XZ plane only
+            float distance = Vector3.Distance(
+                new Vector3(currentVertices[i].x, 0, currentVertices[i].z), 
+                new Vector3(localPosition.x, 0, localPosition.z)
+            );
             
-            if (distance <= paintRadius)
+            if (distance <= deformationRadius)
             {
-                // Calculate paint intensity based on distance (closer = more intense)
-                float intensity = 1f - (distance / paintRadius);
+                float normalizedDistance = distance / deformationRadius;
+                float deformationAmount = deformationFalloff.Evaluate(normalizedDistance) * deformationStrength;
                 
-                // Blend current color with paint color based on intensity
-                vertexColors[i] = Color.Lerp(vertexColors[i], paintColor, intensity * 0.8f);
-                anyVertexPainted = true;
+                // Apply deformation downward
+                currentVertices[i].y = originalVertices[i].y - deformationAmount;
+                
+                // Update vertex color
+                float colorBlend = deformationAmount / deformationStrength;
+                vertexColors[i] = Color.Lerp(baseColor, deformedColor, colorBlend);
+                
+                meshChanged = true;
             }
         }
         
-        // Update the mesh with new colors
-        if (anyVertexPainted)
+        if (meshChanged)
         {
-            originalMesh.colors = vertexColors;
+            UpdateMesh();
         }
     }
     
-    // Call this method from tool scripts when they hit the ground
-    public void OnToolImpact(Vector3 impactPoint, Vector3 impactNormal, float toolForce)
+    public void OnToolImpact(Vector3 worldPosition, float toolStrength = 1.0f, float toolRadius = 1.0f)
     {
-        CreateImpactAtPosition(impactPoint, impactNormal, toolForce);
+        Vector3 localPos = transform.InverseTransformPoint(worldPosition);
+        
+        float originalStrength = deformationStrength;
+        float originalRadius = deformationRadius;
+        
+        deformationStrength = toolStrength;
+        deformationRadius = toolRadius;
+        
+        DeformAtPosition(localPos);
+        
+        deformationStrength = originalStrength;
+        deformationRadius = originalRadius;
     }
     
-    // For use with farming tools like tractors, plows, etc.
-    void OnTriggerEnter(Collider other)
+    [ContextMenu("Reset Deformation")]
+    public void ResetDeformation()
     {
-        // Check if the colliding object is a farming tool
-        if (IsValidTool(other))
+        if (originalVertices != null && currentVertices != null)
         {
-            Vector3 impactPoint = other.ClosestPoint(transform.position);
-            Vector3 impactNormal = Vector3.up; // Assume ground normal is up
+            System.Array.Copy(originalVertices, currentVertices, originalVertices.Length);
             
-            // Get tool force (you can add this as a component to tools)
-            ToolImpact toolScript = other.GetComponent<ToolImpact>();
-            float toolForce = toolScript != null ? toolScript.impactForce : impactForce;
-            
-            CreateImpactAtPosition(impactPoint, impactNormal, toolForce);
-        }
-    }
-    
-    bool IsValidTool(Collider other)
-    {
-        // Check if object is on the tool layer mask
-        return (toolLayerMask.value & (1 << other.gameObject.layer)) > 0;
-    }
-    
-    // Public method to reset the paint
-    public void ClearPaint()
-    {
-        if (vertexColors != null)
-        {
             for (int i = 0; i < vertexColors.Length; i++)
             {
-                vertexColors[i] = Color.white;
+                vertexColors[i] = baseColor;
             }
-            originalMesh.colors = vertexColors;
+            
+            UpdateMesh();
+            Debug.Log("Deformation reset!");
         }
     }
     
-    // Public method to change paint color during runtime
-    public void SetPaintColor(Color newColor)
+    [ContextMenu("Regenerate Mesh")]
+    public void RegenerateMesh()
     {
-        paintColor = newColor;
+        GenerateGroundMesh();
+        Debug.Log("Mesh regenerated!");
+    }
+    
+    void OnDrawGizmosSelected()
+    {
+        // Draw the mesh bounds
+        Gizmos.color = Color.yellow;
+        Vector3 center = transform.position;
+        Vector3 size = new Vector3(meshSize, 0.1f, meshSize);
+        Gizmos.DrawWireCube(center, size);
+        
+        if (enableMouseDeformation)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireSphere(center, deformationRadius);
+        }
+        
+        // Debug: Show vertex positions (limit to avoid performance issues)
+        if (currentVertices != null && currentVertices.Length > 0)
+        {
+            Gizmos.color = Color.green;
+            int step = Mathf.Max(1, currentVertices.Length / 100);
+            for (int i = 0; i < currentVertices.Length; i += step)
+            {
+                Vector3 worldPos = transform.TransformPoint(currentVertices[i]);
+                Gizmos.DrawSphere(worldPos, 0.05f);
+            }
+        }
     }
 }
 
-// Simple component to add to farming tools - must be separate from GroundDeformation class
-public class ToolImpact : MonoBehaviour
+// Custom attribute for buttons in inspector
+public class ButtonAttribute : PropertyAttribute
 {
-    public float impactForce = 3.0f;
-    public ToolType toolType = ToolType.Spade;
-}
-
-public enum ToolType
-{
-    Spade,
-    Plow,
-    Tractor,
-    Hoe,
-    Rake
+    public string MethodName { get; }
+    
+    public ButtonAttribute(string methodName)
+    {
+        MethodName = methodName;
+    }
 }

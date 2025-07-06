@@ -38,11 +38,13 @@ namespace Biostart.DayNight
         public AnimationCurve sunIntensityCurve;
         public AnimationCurve moonIntensityCurve;
 
+        [Header("Sun Intensity Settings")]
+        public float maxSunIntensity = 8f; // Maximum sun intensity value
+
         [Header("Fog Settings")]
         public AnimationCurve fogDensityCurve;
         public Gradient nightDayFogColor;
         public float fogScale = 1f;
-
 
         [Header("Sun Rotation Settings")]
         public float sunRotationY = 170f;
@@ -56,6 +58,20 @@ namespace Biostart.DayNight
         [SerializeField] private Material skyboxMaterial;
         public float cloudChangeSpeed = 0.1f;
         private float defaultCloudCoverage;
+
+        [Header("Water Material Settings")]
+        [SerializeField] private Material waterMaterial;
+        
+        [Header("Translucency Curvature Settings")]
+        public float dayTranslucencyCurvature = 0.9f;   // Day translucency (0-1 range)
+        public float nightTranslucencyCurvature = 0.0f; // Night translucency (0-1 range)
+        
+        [Header("Reflection Curvature Settings")]  
+        public float dayReflectionCurvature = 6.0f;     // Day reflection curvature (your desired max)
+        public float nightReflectionCurvature = 0.0f;   // Night reflection curvature
+        
+        private float defaultTranslucencyCurvature;
+        private float defaultReflectionCurvature;
 
         private void Start()
         {
@@ -79,8 +95,74 @@ namespace Biostart.DayNight
                 Debug.LogError("Skybox Material or _CloudCoverage1 property not found!");
             }
 
+            // Initialize water material settings
+            if (waterMaterial != null)
+            {
+                if (waterMaterial.HasProperty("_TranslucencyCurvatureMask"))
+                {
+                    defaultTranslucencyCurvature = waterMaterial.GetFloat("_TranslucencyCurvatureMask");
+                }
+                
+                if (waterMaterial.HasProperty("_ReflectionFresnel"))
+                {
+                    defaultReflectionCurvature = waterMaterial.GetFloat("_ReflectionFresnel");
+                }
+                
+                if (!waterMaterial.HasProperty("_TranslucencyCurvatureMask") && !waterMaterial.HasProperty("_ReflectionFresnel"))
+                {
+                    Debug.LogWarning("Water Material found but neither _TranslucencyCurvatureMask nor _ReflectionFresnel properties found!");
+                }
+            }
+
+            // Initialize sun intensity curve if not properly set
+            InitializeSunIntensityCurve();
+
             SetSunRotation(currentTimeOfDay);
             InvokeRepeating("UpdateCycle", 0f, 0.01f);
+        }
+
+        private void InitializeSunIntensityCurve()
+        {
+            // Check if curve is empty or has very low values
+            if (sunIntensityCurve == null || sunIntensityCurve.length == 0)
+            {
+                sunIntensityCurve = new AnimationCurve();
+                sunIntensityCurve.AddKey(0f, 0f);      // Midnight - no sun
+                sunIntensityCurve.AddKey(0.2f, 0f);    // 4:48 AM - sunrise starts
+                sunIntensityCurve.AddKey(0.3f, 0.5f);  // 7:12 AM - morning light
+                sunIntensityCurve.AddKey(0.5f, 1f);    // Noon - maximum intensity
+                sunIntensityCurve.AddKey(0.7f, 0.5f);  // 4:48 PM - afternoon light
+                sunIntensityCurve.AddKey(0.8f, 0f);    // 7:12 PM - sunset ends
+                sunIntensityCurve.AddKey(1f, 0f);      // Midnight - no sun
+                
+                // Set smooth tangents
+                for (int i = 0; i < sunIntensityCurve.length; i++)
+                {
+                    sunIntensityCurve.SmoothTangents(i, 0.3f);
+                }
+            }
+            else
+            {
+                // Check if the curve has proper peak values
+                float maxValue = 0f;
+                for (int i = 0; i < sunIntensityCurve.length; i++)
+                {
+                    if (sunIntensityCurve[i].value > maxValue)
+                        maxValue = sunIntensityCurve[i].value;
+                }
+                
+                // If curve max is too low, normalize it to 1.0
+                if (maxValue < 0.9f && maxValue > 0.1f)
+                {
+                    Debug.Log($"Sun intensity curve maximum was {maxValue}, normalizing to 1.0");
+                    for (int i = 0; i < sunIntensityCurve.length; i++)
+                    {
+                        Keyframe key = sunIntensityCurve[i];
+                        key.value = key.value / maxValue;
+                        sunIntensityCurve.MoveKey(i, key);
+                    }
+                }
+            }
         }
 
         private void Update()
@@ -116,7 +198,6 @@ namespace Biostart.DayNight
         private void UpdateRandomCloudCoverage()
         {
             timeSinceLastChange += Time.deltaTime;
-
 
             // Рассчитываем плавное изменение облачности через синусоидальную функцию
             currentRandomCoverage = Mathf.Lerp(minCloudCoverage, maxCloudCoverage, 
@@ -155,7 +236,10 @@ namespace Biostart.DayNight
 
         public void UpdateFX()
         {
-            float sunIntensity = sunIntensityCurve.Evaluate(currentTimeOfDay / 24f);
+            // Calculate sun intensity using the curve (0-1) multiplied by max intensity
+            float normalizedSunIntensity = sunIntensityCurve.Evaluate(currentTimeOfDay / 24f);
+            float sunIntensity = normalizedSunIntensity * maxSunIntensity;
+            
             float moonIntensity = moonIntensityCurve.Evaluate(currentTimeOfDay / 24f);
 
             sun.intensity = sunIntensity;
@@ -169,6 +253,31 @@ namespace Biostart.DayNight
             RenderSettings.fogDensity = fogDensityCurve.Evaluate(currentTimeOfDay / 24f) * fogScale;
 
             moon.color = nightColor.Evaluate(currentTimeOfDay / 24f);
+
+            // Update water curvature mask based on time of day
+            UpdateWaterCurvature();
+        }
+
+        private void UpdateWaterCurvature()
+        {
+            if (waterMaterial == null) return;
+            
+            // Use the same normalized intensity as the sun (follows sun cycle exactly)
+            float sunIntensityNormalized = sunIntensityCurve.Evaluate(currentTimeOfDay / 24f);
+            
+            // Update Translucency Curvature Mask - follows sun intensity
+            if (waterMaterial.HasProperty("_TranslucencyCurvatureMask"))
+            {
+                float targetTranslucency = Mathf.Lerp(nightTranslucencyCurvature, dayTranslucencyCurvature, sunIntensityNormalized);
+                waterMaterial.SetFloat("_TranslucencyCurvatureMask", targetTranslucency);
+            }
+            
+            // Update Reflection Curvature Mask - also follows sun intensity
+            if (waterMaterial.HasProperty("_ReflectionFresnel"))
+            {
+                float targetReflection = Mathf.Lerp(nightReflectionCurvature, dayReflectionCurvature, sunIntensityNormalized);
+                waterMaterial.SetFloat("_ReflectionFresnel", targetReflection);
+            }
         }
 
         public void SetCurrentDay(int day)
@@ -279,6 +388,20 @@ namespace Biostart.DayNight
             if (skyboxMaterial != null && skyboxMaterial.HasProperty("_CloudCoverage1"))
             {
                 skyboxMaterial.SetFloat("_CloudCoverage1", defaultCloudCoverage);
+            }
+            
+            // Reset water material to default values
+            if (waterMaterial != null)
+            {
+                if (waterMaterial.HasProperty("_TranslucencyCurvatureMask"))
+                {
+                    waterMaterial.SetFloat("_TranslucencyCurvatureMask", defaultTranslucencyCurvature);
+                }
+                
+                if (waterMaterial.HasProperty("_ReflectionFresnel"))
+                {
+                    waterMaterial.SetFloat("_ReflectionFresnel", defaultReflectionCurvature);
+                }
             }
         }
 

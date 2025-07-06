@@ -64,9 +64,10 @@ public class GrassManager : MonoBehaviour
     [Range(50, 300)]
     public int maxInstancesPerFrameAPU = 150;
     
-    [Header("Debug")]
+    /*[Header("Debug")]
     public bool showGrassPositions = false;
     public bool showPerformanceInfo = true;
+    */
     
     // Core grass data - always maintained
     private List<Matrix4x4> allGrassMatrices = new List<Matrix4x4>();
@@ -95,13 +96,13 @@ public class GrassManager : MonoBehaviour
         
         if (targetCamera == null)
         {
-            Debug.LogError("No camera found! Please assign Target Camera.");
+            /*Debug.LogError("No camera found! Please assign Target Camera.");*/
             return;
         }
         
         if (grassMaterial == null)
         {
-            Debug.LogError("Grass Material is required!");
+            /*Debug.LogError("Grass Material is required!");*/
             return;
         }
         
@@ -123,7 +124,7 @@ public class GrassManager : MonoBehaviour
         // Start management coroutines
         StartManagementSystem();
         
-        Debug.Log($"Grass system initialized with {allGrassMatrices.Count} grass instances");
+        /*Debug.Log($"Grass system initialized with {allGrassMatrices.Count} grass instances");*/
     }
     
     void ApplyAPUOptimizations()
@@ -135,7 +136,7 @@ public class GrassManager : MonoBehaviour
         lodDistance2 = Mathf.Min(lodDistance2, 50f);
         maxRenderDistance = Mathf.Min(maxRenderDistance, 60f);
         
-        Debug.Log($"APU Mode: Optimized grass count to {grassCount}");
+        /*Debug.Log($"APU Mode: Optimized grass count to {grassCount}");*/
     }
     
     void SetupLODMeshes()
@@ -187,7 +188,7 @@ public class GrassManager : MonoBehaviour
             spawnCenter = new Vector3(groundPlane.position.x, groundHeight, groundPlane.position.z);
         }
         
-        Debug.Log($"Spawning {grassCount} grass at center: {spawnCenter}");
+        /*Debug.Log($"Spawning {grassCount} grass at center: {spawnCenter}");*/
         
         // Generate grass in grid pattern
         int grassPerSide = Mathf.CeilToInt(Mathf.Sqrt(grassCount));
@@ -222,7 +223,7 @@ public class GrassManager : MonoBehaviour
         // Setup initial rendering system
         SetupRenderingForCurrentLOD();
         
-        Debug.Log($"Generated {allGrassMatrices.Count} grass instances");
+        /*Debug.Log($"Generated {allGrassMatrices.Count} grass instances");*/
     }
     
     Matrix4x4 CreateGrassMatrixWithVariation(Vector3 position)
@@ -240,7 +241,7 @@ public class GrassManager : MonoBehaviour
     {
         if (allGrassMatrices.Count == 0)
         {
-            Debug.LogWarning("No grass matrices to setup rendering for!");
+            /*Debug.LogWarning("No grass matrices to setup rendering for!");*/
             return;
         }
         
@@ -262,7 +263,7 @@ public class GrassManager : MonoBehaviour
         activeMesh = grassMeshLOD0;
         activeBatches = CreateBatchArrayFromList(allGrassMatrices);
         
-        Debug.Log($"Setup LOD rendering with {activeBatches.Length} batches using {activeMesh.name}");
+        /*Debug.Log($"Setup LOD rendering with {activeBatches.Length} batches using {activeMesh.name}");*/
     }
     
     void SetupSimpleRendering()
@@ -271,7 +272,7 @@ public class GrassManager : MonoBehaviour
         activeMesh = grassMeshLOD0;
         activeBatches = CreateBatchArrayFromList(allGrassMatrices);
         
-        Debug.Log($"Setup simple rendering with {activeBatches.Length} batches using {activeMesh.name}");
+        /*Debug.Log($"Setup simple rendering with {activeBatches.Length} batches using {activeMesh.name}");*/
     }
     
     Matrix4x4[][] CreateBatchArrayFromList(List<Matrix4x4> matrices)
@@ -312,7 +313,7 @@ public class GrassManager : MonoBehaviour
         lodManagementCoroutine = StartCoroutine(LODManagementLoop());
         shadowCoroutine = StartCoroutine(ShadowUpdateLoop());
         
-        Debug.Log("Started management system coroutines");
+        /*Debug.Log("Started management system coroutines");*/
     }
     
     void StopManagementSystem()
@@ -329,7 +330,7 @@ public class GrassManager : MonoBehaviour
             shadowCoroutine = null;
         }
         
-        Debug.Log("Stopped management system coroutines");
+        /*Debug.Log("Stopped management system coroutines");*/
     }
     
     IEnumerator LODManagementLoop()
@@ -339,7 +340,7 @@ public class GrassManager : MonoBehaviour
             // Check for LOD state changes
             if (lastLODState != enableLODSystem)
             {
-                Debug.Log($"LOD system changed to: {enableLODSystem}. Rebuilding rendering...");
+                /*Debug.Log($"LOD system changed to: {enableLODSystem}. Rebuilding rendering...");*/
                 SetupRenderingForCurrentLOD();
             }
             
@@ -387,11 +388,11 @@ public class GrassManager : MonoBehaviour
             RenderSimple(cameraPos);
         }
         
-        // Debug info occasionally
+        /*// Debug info occasionally
         if (showPerformanceInfo && Time.frameCount % 300 == 0) // Every 5 seconds
         {
             Debug.Log($"Rendered {lastRenderedCount} instances, {lastTriangleCount} triangles");
-        }
+        }*/
     }
     
     void RenderWithLOD(Vector3 cameraPos)
@@ -553,7 +554,7 @@ public class GrassManager : MonoBehaviour
     public void ToggleLODSystem()
     {
         enableLODSystem = !enableLODSystem;
-        Debug.Log($"LOD System: {(enableLODSystem ? "Enabled" : "Disabled")}");
+        /*Debug.Log($"LOD System: {(enableLODSystem ? "Enabled" : "Disabled")}");*/
         // The LOD management coroutine will handle the switch automatically
     }
     
@@ -563,10 +564,10 @@ public class GrassManager : MonoBehaviour
         StopManagementSystem();
         SetupRenderingForCurrentLOD();
         StartManagementSystem();
-        Debug.Log("Management system restarted");
+        /*Debug.Log("Management system restarted");*/
     }
     
-    [ContextMenu("Debug Rendering State")]
+    /*[ContextMenu("Debug Rendering State")]
     public void DebugRenderingState()
     {
         Debug.Log($"=== Grass Manager Debug ===");
@@ -581,7 +582,7 @@ public class GrassManager : MonoBehaviour
         Debug.Log($"Last Rendered Count: {lastRenderedCount}");
         Debug.Log($"LOD Coroutine Active: {(lodManagementCoroutine != null)}");
         Debug.Log($"=========================");
-    }
+    }*/
     
     [ContextMenu("Clear Grass")]
     public void ClearGrass()
@@ -590,7 +591,7 @@ public class GrassManager : MonoBehaviour
         allGrassPositions.Clear();
         activeBatches = null;
         activeMesh = null;
-        Debug.Log("Cleared all grass");
+        /*Debug.Log("Cleared all grass");*/
     }
     
     void OnDrawGizmosSelected()
@@ -606,7 +607,7 @@ public class GrassManager : MonoBehaviour
         Gizmos.DrawWireCube(center, new Vector3(spawnAreaSize, 0.1f, spawnAreaSize));
         
         // Draw grass positions if enabled
-        if (showGrassPositions && allGrassPositions.Count > 0)
+        /*if (/*showGrassPositions &&#1# allGrassPositions.Count > 0)
         {
             Gizmos.color = Color.white;
             int maxDraw = Mathf.Min(50, allGrassPositions.Count);
@@ -614,7 +615,7 @@ public class GrassManager : MonoBehaviour
             {
                 Gizmos.DrawWireSphere(allGrassPositions[i], 0.1f);
             }
-        }
+        }*/
     }
     
     // Public properties for debugging
