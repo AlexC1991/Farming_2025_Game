@@ -2,11 +2,18 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System;
 
 namespace Biostart.DayNight
 {
     public class DayNightCycleWeather : MonoBehaviour
     {
+        [Header("Time Mode Settings")]
+        [SerializeField] private bool useSystemTime = true;
+        [SerializeField] private bool useLocalTime = true; // If false, uses UTC
+        [SerializeField] private float timeOffset = 0f; // Hours to offset from system time
+        
+        [Header("Manual Time Settings (Debug Mode)")]
         [Range(0, 24)]
         public float currentTimeOfDay = 1f;
 
@@ -61,13 +68,15 @@ namespace Biostart.DayNight
 
         [Header("Water Material Settings")]
         [SerializeField] private Material waterMaterial;
+        public AnimationCurve waterTranslucencyCurve;
+        public AnimationCurve waterReflectionCurve;
         
         [Header("Translucency Curvature Settings")]
         public float dayTranslucencyCurvature = 0.9f;   // Day translucency (0-1 range)
         public float nightTranslucencyCurvature = 0.0f; // Night translucency (0-1 range)
         
         [Header("Reflection Curvature Settings")]  
-        public float dayReflectionCurvature = 6.0f;     // Day reflection curvature (your desired max)
+        public float dayReflectionCurvature = 0.8f;     // Day reflection curvature
         public float nightReflectionCurvature = 0.0f;   // Night reflection curvature
         
         private float defaultTranslucencyCurvature;
@@ -114,11 +123,109 @@ namespace Biostart.DayNight
                 }
             }
 
-            // Initialize sun intensity curve if not properly set
+            // Initialize curves
             InitializeSunIntensityCurve();
+            InitializeWaterCurvatureCurve();
 
+            // Set initial time
+            if (useSystemTime)
+            {
+                UpdateFromSystemTime();
+            }
+            
             SetSunRotation(currentTimeOfDay);
             InvokeRepeating("UpdateCycle", 0f, 0.01f);
+        }
+
+        private void UpdateFromSystemTime()
+        {
+            DateTime now = useLocalTime ? DateTime.Now : DateTime.UtcNow;
+            
+            // Add offset
+            now = now.AddHours(timeOffset);
+            
+            // Convert to 24-hour format
+            currentTimeOfDay = now.Hour + (now.Minute / 60f) + (now.Second / 3600f);
+            
+            // Set current day based on day of month
+            currentDay = Mathf.Clamp(now.Day, 1, maxDay);
+        }
+
+        // Public methods to switch between modes (can be called from UI buttons)
+        public void SetManualTimeMode()
+        {
+            useSystemTime = false;
+            Debug.Log("Switched to Manual Time Mode");
+        }
+
+        public void SetSystemTimeMode()
+        {
+            useSystemTime = true;
+            UpdateFromSystemTime();
+            Debug.Log("Switched to System Time Mode");
+        }
+
+        public void ToggleTimeMode()
+        {
+            useSystemTime = !useSystemTime;
+            if (useSystemTime)
+            {
+                UpdateFromSystemTime();
+                Debug.Log("Switched to System Time Mode");
+            }
+            else
+            {
+                Debug.Log("Switched to Manual Time Mode");
+            }
+        }
+
+        // Method to set time offset (useful for testing different time zones)
+        public void SetTimeOffset(float offsetHours)
+        {
+            timeOffset = offsetHours;
+            if (useSystemTime)
+            {
+                UpdateFromSystemTime();
+            }
+        }
+
+        private void InitializeWaterCurvatureCurve()
+        {
+            // Initialize translucency curvature curve if not set
+            if (waterTranslucencyCurve == null || waterTranslucencyCurve.length == 0)
+            {
+                waterTranslucencyCurve = new AnimationCurve();
+                waterTranslucencyCurve.AddKey(0f, 0f);    // Midnight - night (0 = use night value)
+                waterTranslucencyCurve.AddKey(0.2f, 0f);  // 4:48 AM - still night
+                waterTranslucencyCurve.AddKey(0.3f, 0.5f); // 7:12 AM - dawn transition
+                waterTranslucencyCurve.AddKey(0.5f, 1f);  // Noon - day (1 = use day value)
+                waterTranslucencyCurve.AddKey(0.7f, 0.5f); // 4:48 PM - dusk transition
+                waterTranslucencyCurve.AddKey(0.8f, 0f);  // 7:12 PM - night begins
+                waterTranslucencyCurve.AddKey(1f, 0f);    // Midnight - night
+                
+                for (int i = 0; i < waterTranslucencyCurve.length; i++)
+                {
+                    waterTranslucencyCurve.SmoothTangents(i, 0.3f);
+                }
+            }
+            
+            // Initialize reflection curvature curve if not set
+            if (waterReflectionCurve == null || waterReflectionCurve.length == 0)
+            {
+                waterReflectionCurve = new AnimationCurve();
+                waterReflectionCurve.AddKey(0f, 0f);    // Midnight - night (0 = use night value)
+                waterReflectionCurve.AddKey(0.2f, 0f);  // 4:48 AM - still night
+                waterReflectionCurve.AddKey(0.3f, 0.5f); // 7:12 AM - dawn transition
+                waterReflectionCurve.AddKey(0.5f, 1f);  // Noon - day (1 = use day value)
+                waterReflectionCurve.AddKey(0.7f, 0.5f); // 4:48 PM - dusk transition
+                waterReflectionCurve.AddKey(0.8f, 0f);  // 7:12 PM - night begins
+                waterReflectionCurve.AddKey(1f, 0f);    // Midnight - night
+                
+                for (int i = 0; i < waterReflectionCurve.length; i++)
+                {
+                    waterReflectionCurve.SmoothTangents(i, 0.3f);
+                }
+            }
         }
 
         private void InitializeSunIntensityCurve()
@@ -174,6 +281,12 @@ namespace Biostart.DayNight
             {
                 UpdateRandomCloudCoverage();
             }
+
+            // Update from system time if enabled
+            if (useSystemTime)
+            {
+                UpdateFromSystemTime();
+            }
         }
 
         public void UpdateCycle()
@@ -181,16 +294,20 @@ namespace Biostart.DayNight
             UpdatePosition();
             UpdateFX();
 
-            currentTimeOfDay += (Time.deltaTime / sunRotationSeconds * rotationSpeedMultiplier) * 24f;
-
-            if (currentTimeOfDay >= 24f)
+            // Only update time automatically if not using system time
+            if (!useSystemTime)
             {
-                currentTimeOfDay = 0f;
-                currentDay++;
+                currentTimeOfDay += (Time.deltaTime / sunRotationSeconds * rotationSpeedMultiplier) * 24f;
 
-                if (currentDay > maxDay)
+                if (currentTimeOfDay >= 24f)
                 {
-                    currentDay = 1;
+                    currentTimeOfDay = 0f;
+                    currentDay++;
+
+                    if (currentDay > maxDay)
+                    {
+                        currentDay = 1;
+                    }
                 }
             }
         }
@@ -262,20 +379,33 @@ namespace Biostart.DayNight
         {
             if (waterMaterial == null) return;
             
-            // Use the same normalized intensity as the sun (follows sun cycle exactly)
-            float sunIntensityNormalized = sunIntensityCurve.Evaluate(currentTimeOfDay / 24f);
+            float timeNormalized = currentTimeOfDay / 24f;
             
-            // Update Translucency Curvature Mask - follows sun intensity
+            // Update Translucency Curvature Mask
             if (waterMaterial.HasProperty("_TranslucencyCurvatureMask"))
             {
-                float targetTranslucency = Mathf.Lerp(nightTranslucencyCurvature, dayTranslucencyCurvature, sunIntensityNormalized);
+                // Get curve value (0-1) and map it directly to YOUR specified day/night range
+                float curveValue = waterTranslucencyCurve.Evaluate(timeNormalized);
+                float targetTranslucency = Mathf.Lerp(nightTranslucencyCurvature, dayTranslucencyCurvature, curveValue);
+                
+                // Clamp to ensure it stays within your specified range
+                targetTranslucency = Mathf.Clamp(targetTranslucency, nightTranslucencyCurvature, dayTranslucencyCurvature);
+                
+                // Set directly to your calculated value
                 waterMaterial.SetFloat("_TranslucencyCurvatureMask", targetTranslucency);
             }
             
-            // Update Reflection Curvature Mask - also follows sun intensity
+            // Update Reflection Curvature Mask (Environment Reflections)
             if (waterMaterial.HasProperty("_ReflectionFresnel"))
             {
-                float targetReflection = Mathf.Lerp(nightReflectionCurvature, dayReflectionCurvature, sunIntensityNormalized);
+                // Get curve value (0-1) and map it directly to YOUR specified day/night range
+                float curveValue = waterReflectionCurve.Evaluate(timeNormalized);
+                float targetReflection = Mathf.Lerp(nightReflectionCurvature, dayReflectionCurvature, curveValue);
+                
+                // Clamp to ensure it stays within your specified range
+                targetReflection = Mathf.Clamp(targetReflection, nightReflectionCurvature, dayReflectionCurvature);
+                
+                // Set directly to your calculated value
                 waterMaterial.SetFloat("_ReflectionFresnel", targetReflection);
             }
         }
@@ -414,8 +544,13 @@ namespace Biostart.DayNight
             if (currentDay > maxDay) currentDay = maxDay;
 
             timeDisplay = ConvertRangeToTime(currentTimeOfDay);
-            UpdatePosition();
-            UpdateFX();
+            
+            // Only update position and FX if not using system time or if in editor
+            if (!useSystemTime || !Application.isPlaying)
+            {
+                UpdatePosition();
+                UpdateFX();
+            }
         }
     }
 
