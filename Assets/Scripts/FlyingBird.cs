@@ -1,248 +1,421 @@
 using UnityEngine;
-using UnityEngine.AI;
 using System.Collections;
+using System.Collections.Generic;
 
 public class FlyingBird : MonoBehaviour
 {
-    [Header("Flying Settings")]
+    [Header("Flight Settings")]
     public float flySpeed = 5f;
     public float rotationSpeed = 2f;
-    public float wanderRadius = 20f;
-    public float wanderTimer = 5f;
+    public float landingDistance = 2f;
+    public float landingDuration = 8f;
+    public float flightHeight = 10f;
+    public float circleRadius = 50f;
+    public float approachDistance = 25f;
     
-    [Header("Link Traversal Settings")]
-    public float linkTraversalSpeed = 4f;
-    public AnimationCurve takeoffCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
-    public AnimationCurve landingCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+    [Header("Landing Positions")]
+    public Transform[] landingSpots;
+    public bool useRandomLanding = true;
     
-    [Header("Flight Behavior")]
-    public bool preferAirTravel = true;
-    public float groundTime = 2f; // Time to spend on ground before taking off again
+    [Header("Animation")]
+    public Animator animator;
+    public string flyingAnimationName = "Flying";
+    public string landingAnimationName = "Landing";
+    public string idleAnimationName = "Idle";
+
+    public enum BirdState
+    {
+        CircularFlying,
+        FlyingAway,
+        ApproachingLanding,
+        Landing,
+        Resting,
+        TakingOff
+    }
     
-    private NavMeshAgent agent;
-    private float timer;
-    private Vector3 targetPosition;
-    private bool isTraversingLink = false;
-    private bool isOnGround = true;
-    private float groundTimer = 0f;
+    private BirdState currentState = BirdState.CircularFlying;
+    private Transform currentTarget;
+    private Vector3 approachPoint; // The 90-degree approach point
+    private Vector3 circleCenter;
+    private float circleAngle = 0f;
+    private int currentLandingIndex = 0;
+    private Coroutine landingRoutine;
+    private Vector3 takeoffDirection; // Store the takeoff angle
+    private float landingTimer = 0f;
+    public float timeBeforeLanding = 15f; // How long to fly in circles before landing
     
     void Start()
     {
-        agent = GetComponent<NavMeshAgent>();
+        if (landingSpots.Length == 0)
+        {
+            Debug.LogWarning("No landing spots assigned to " + gameObject.name);
+            return;
+        }
         
-        // Configure agent for flying
-        agent.speed = flySpeed;
-        agent.angularSpeed = rotationSpeed * 57.2958f;
-        agent.acceleration = 8f;
-        agent.stoppingDistance = 1f;
-        
-        // Important settings for off-mesh links
-        agent.autoTraverseOffMeshLink = false; // We'll handle this manually
-        agent.areaMask = NavMesh.AllAreas; // Can use all areas including links
-        
-        timer = wanderTimer;
-        
-        // Check if starting on ground or in air
-        CheckCurrentSurface();
-        
-        SetNewDestination();
+        // Start flying in circles around the center of all landing spots
+        CalculateCircleCenter();
+        SelectNextLandingSpot();
+        SetState(BirdState.CircularFlying);
     }
     
     void Update()
     {
-        // Handle off-mesh link traversal
-        if (agent.isOnOffMeshLink && !isTraversingLink)
+        switch (currentState)
         {
-            StartCoroutine(TraverseOffMeshLink());
+            case BirdState.CircularFlying:
+                HandleCircularFlying();
+                break;
+            case BirdState.FlyingAway:
+                HandleFlyingAway();
+                break;
+            case BirdState.ApproachingLanding:
+                HandleApproachingLanding();
+                break;
+            case BirdState.Landing:
+                HandleLanding();
+                break;
+            case BirdState.TakingOff:
+                HandleTakeOff();
+                break;
+        }
+    }
+    
+    void CalculateCircleCenter()
+    {
+        if (landingSpots.Length == 0) return;
+        
+        Vector3 center = Vector3.zero;
+        foreach (Transform spot in landingSpots)
+        {
+            if (spot != null)
+                center += spot.position;
+        }
+        center /= landingSpots.Length;
+        circleCenter = center + Vector3.up * flightHeight;
+    }
+    
+    void HandleCircularFlying()
+    {
+        // Fly in a random, varying circle around the center point
+        circleAngle += (flySpeed / circleRadius) * Time.deltaTime;
+        
+        // Add some randomness to the flight pattern
+        float radiusVariation = Mathf.Sin(Time.time * 0.5f) * (circleRadius * 0.3f);
+        float currentRadius = circleRadius + radiusVariation;
+        
+        Vector3 targetPosition = circleCenter + new Vector3(
+            Mathf.Cos(circleAngle) * currentRadius,
+            Random.Range(-2f, 2f), // Small random height variation
+            Mathf.Sin(circleAngle) * currentRadius
+        );
+        
+        // Calculate movement direction before moving
+        Vector3 direction = (targetPosition - transform.position).normalized;
+        
+        // Move towards the circle position
+        transform.position += direction * flySpeed * Time.deltaTime;
+        
+        // Rotate to face movement direction with proper up vector
+        if (direction.magnitude > 0.1f)
+        {
+            // Create rotation that faces the movement direction
+            Quaternion targetRotation = Quaternion.LookRotation(direction, Vector3.up);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * 2f * Time.deltaTime);
         }
         
-        // Don't update destination while traversing links
-        if (isTraversingLink)
-            return;
+        // Count down to landing
+        landingTimer += Time.deltaTime;
+        if (landingTimer >= timeBeforeLanding)
+        {
+            landingTimer = 0f;
+            CalculateApproachPoint();
+            SetState(BirdState.FlyingAway);
+        }
+    }
+    
+    void CalculateApproachPoint()
+    {
+        if (currentTarget == null) return;
+        
+        Vector3 landingPos = currentTarget.position;
+        
+        // Create a random perpendicular direction from the landing spot
+        float randomAngle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
+        Vector3 perpendicular = new Vector3(Mathf.Cos(randomAngle), 0, Mathf.Sin(randomAngle));
+        
+        // Set approach point AWAY from landing spot at SAME HEIGHT as flight height
+        approachPoint = landingPos + (perpendicular * approachDistance);
+        approachPoint.y = flightHeight; // Set to flight height, NOT above landing spot
+    }
+    
+    void HandleFlyingAway()
+    {
+        // Fly to the approach point (which is away from landing spot)
+        Vector3 direction = (approachPoint - transform.position).normalized;
+        transform.position += direction * flySpeed * Time.deltaTime;
+        
+        // Face the direction we're flying with proper orientation
+        if (direction.magnitude > 0.1f)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(direction, Vector3.up);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * 2f * Time.deltaTime);
+        }
+        
+        // Check if reached the approach point
+        float distanceToApproach = Vector3.Distance(transform.position, approachPoint);
+        if (distanceToApproach <= 3f)
+        {
+            SetState(BirdState.ApproachingLanding);
+        }
+    }
+    
+    void HandleApproachingLanding()
+    {
+        if (currentTarget == null) return;
+        
+        // Fly horizontally toward landing spot while descending at the 90-degree angle
+        Vector3 landingPos = currentTarget.position;
+        Vector3 direction = (landingPos - transform.position).normalized;
+        
+        transform.position += direction * flySpeed * 0.8f * Time.deltaTime;
+        
+        // Face the landing direction with proper bank/tilt
+        if (direction.magnitude > 0.1f)
+        {
+            // Calculate banking angle based on descent
+            Vector3 bankDirection = direction;
+            if (direction.y < 0) // If descending, add slight banking
+            {
+                bankDirection = Vector3.Slerp(Vector3.up, direction, 0.7f);
+            }
             
-        timer += Time.deltaTime;
-        
-        // Ground behavior - wait before taking off
-        if (isOnGround)
-        {
-            groundTimer += Time.deltaTime;
-            if (groundTimer >= groundTime || timer >= wanderTimer)
-            {
-                if (preferAirTravel)
-                {
-                    SetAirDestination();
-                }
-                else
-                {
-                    SetNewDestination();
-                }
-                groundTimer = 0f;
-                timer = 0f;
-            }
-        }
-        else
-        {
-            // Air behavior - normal wandering
-            if (timer >= wanderTimer || agent.remainingDistance < 0.5f)
-            {
-                SetNewDestination();
-                timer = 0f;
-            }
+            Quaternion targetRotation = Quaternion.LookRotation(direction, bankDirection);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * 1.5f * Time.deltaTime);
         }
         
-        // Smoothly rotate toward movement direction
-        if (agent.velocity.magnitude > 0.1f)
+        // When close to landing spot, switch to final landing
+        float distanceToLanding = Vector3.Distance(transform.position, landingPos);
+        if (distanceToLanding <= 3f)
         {
-            Quaternion targetRotation = Quaternion.LookRotation(agent.velocity.normalized);
+            SetState(BirdState.Landing);
+        }
+    }
+    
+    void HandleLanding()
+    {
+        if (currentTarget == null) return;
+        
+        // Final descent - gradual angle down to landing spot
+        Vector3 landingPos = currentTarget.position;
+        Vector3 direction = (landingPos - transform.position).normalized;
+        
+        // Maintain some forward momentum while descending
+        Vector3 forwardDirection = transform.forward;
+        Vector3 landingDirection = Vector3.Slerp(forwardDirection, direction, 0.7f);
+        
+        float landingSpeed = flySpeed * 0.6f;
+        transform.position += landingDirection * landingSpeed * Time.deltaTime;
+        
+        // Gradually face downward with realistic bird landing posture
+        if (landingDirection.magnitude > 0.1f)
+        {
+            // Birds tilt their body forward when landing
+            Vector3 upDirection = Vector3.Slerp(Vector3.up, -direction, 0.3f);
+            Quaternion targetRotation = Quaternion.LookRotation(landingDirection, upDirection);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
         }
-    }
-    
-    void CheckCurrentSurface()
-    {
-        // Check if we're on ground level or in air
-        NavMeshHit hit;
-        if (NavMesh.SamplePosition(transform.position, out hit, 1f, NavMesh.AllAreas))
+        
+        // Check if landed
+        if (transform.position.y <= landingPos.y + 0.5f)
         {
-            // Simple height check - adjust threshold based on your scene
-            isOnGround = hit.position.y < 2f;
+            transform.position = landingPos;
+            // Face forward when landed
+            Vector3 forwardDir = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
+            if (forwardDir != Vector3.zero)
+            {
+                transform.rotation = Quaternion.LookRotation(forwardDir, Vector3.up);
+            }
+            SetState(BirdState.Resting);
         }
     }
     
-    void SetNewDestination()
+    void HandleTakeOff()
     {
-        Vector3 randomDirection = Random.insideUnitSphere * wanderRadius;
-        randomDirection += transform.position;
+        // Take off at an angle, not straight up
+        transform.position += takeoffDirection * flySpeed * 0.8f * Time.deltaTime;
         
-        // Adjust height based on current surface
-        if (isOnGround)
+        // Face the takeoff direction
+        if (takeoffDirection.magnitude > 0.1f)
         {
-            randomDirection.y = transform.position.y; // Stay on ground level
+            Quaternion targetRotation = Quaternion.LookRotation(takeoffDirection, Vector3.up);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * 2f * Time.deltaTime);
+        }
+        
+        // When high enough, return to circular flying
+        if (transform.position.y >= flightHeight)
+        {
+            SelectNextLandingSpot();
+            SetState(BirdState.CircularFlying);
+        }
+    }
+    
+    void SetState(BirdState newState)
+    {
+        currentState = newState;
+        
+        // Handle animations
+        if (animator != null)
+        {
+            switch (newState)
+            {
+                case BirdState.CircularFlying:
+                case BirdState.FlyingAway:
+                case BirdState.ApproachingLanding:
+                case BirdState.Landing:
+                    animator.Play(flyingAnimationName);
+                    break;
+                case BirdState.Resting:
+                    animator.Play(landingAnimationName);
+                    StartCoroutine(SwitchToIdleAfterLanding());
+                    
+                    // Start resting timer
+                    if (landingRoutine != null) StopCoroutine(landingRoutine);
+                    landingRoutine = StartCoroutine(RestingTimer());
+                    break;
+                case BirdState.TakingOff:
+                    // Calculate a NEW random takeoff direction (not the same as landing approach)
+                    CalculateTakeoffDirection();
+                    animator.Play(flyingAnimationName);
+                    break;
+            }
+        }
+    }
+    
+    IEnumerator SwitchToIdleAfterLanding()
+    {
+        yield return new WaitForSeconds(0.5f);
+        if (currentState == BirdState.Resting && animator != null)
+        {
+            animator.Play(idleAnimationName);
+        }
+    }
+    
+    IEnumerator RestingTimer()
+    {
+        yield return new WaitForSeconds(landingDuration);
+        SetState(BirdState.TakingOff);
+    }
+    
+    void CalculateTakeoffDirection()
+    {
+        // Generate a NEW random direction for takeoff (different from landing approach)
+        float randomAngle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
+        Vector3 horizontalDirection = new Vector3(Mathf.Cos(randomAngle), 0, Mathf.Sin(randomAngle));
+        
+        // Takeoff at an upward angle (like real birds)
+        takeoffDirection = (horizontalDirection + Vector3.up * 0.7f).normalized;
+    }
+    
+    void SelectNextLandingSpot()
+    {
+        if (landingSpots.Length == 0) return;
+        
+        if (useRandomLanding)
+        {
+            int randomIndex;
+            do
+            {
+                randomIndex = Random.Range(0, landingSpots.Length);
+            } while (randomIndex == currentLandingIndex && landingSpots.Length > 1);
+            
+            currentLandingIndex = randomIndex;
         }
         else
         {
-            randomDirection.y = Mathf.Clamp(randomDirection.y, 3f, 15f); // Stay in air
+            currentLandingIndex = (currentLandingIndex + 1) % landingSpots.Length;
         }
         
-        NavMeshHit hit;
-        if (NavMesh.SamplePosition(randomDirection, out hit, wanderRadius, NavMesh.AllAreas))
+        currentTarget = landingSpots[currentLandingIndex];
+    }
+    
+    // Public methods for external control
+    public void SetLandingSpots(Transform[] spots)
+    {
+        landingSpots = spots;
+        if (spots.Length > 0)
         {
-            targetPosition = hit.position;
-            agent.SetDestination(targetPosition);
+            CalculateCircleCenter();
+            SelectNextLandingSpot();
         }
     }
     
-    void SetAirDestination()
+    public void ForceLandAt(int spotIndex)
     {
-        // Specifically look for air destinations
-        Vector3 randomDirection = Random.insideUnitSphere * wanderRadius;
-        randomDirection += transform.position;
-        randomDirection.y = Random.Range(5f, 15f); // Force air height
-        
-        NavMeshHit hit;
-        if (NavMesh.SamplePosition(randomDirection, out hit, wanderRadius, NavMesh.AllAreas))
+        if (spotIndex >= 0 && spotIndex < landingSpots.Length)
         {
-            targetPosition = hit.position;
-            agent.SetDestination(targetPosition);
+            currentLandingIndex = spotIndex;
+            currentTarget = landingSpots[spotIndex];
+            
+            if (landingRoutine != null) StopCoroutine(landingRoutine);
+            CalculateApproachPoint();
+            SetState(BirdState.FlyingAway);
         }
     }
     
-    IEnumerator TraverseOffMeshLink()
+    public void SetFlightSpeed(float speed)
     {
-        isTraversingLink = true;
-        
-        OffMeshLinkData linkData = agent.currentOffMeshLinkData;
-        Vector3 startPos = linkData.startPos;
-        Vector3 endPos = linkData.endPos;
-        
-        // Determine if this is takeoff or landing
-        bool isTakeoff = endPos.y > startPos.y;
-        AnimationCurve currentCurve = isTakeoff ? takeoffCurve : landingCurve;
-        
-        float distance = Vector3.Distance(startPos, endPos);
-        float duration = distance / linkTraversalSpeed;
-        
-        float elapsedTime = 0f;
-        
-        // Disable agent movement during traversal
-        agent.updatePosition = false;
-        agent.updateRotation = false;
-        
-        while (elapsedTime < duration)
-        {
-            elapsedTime += Time.deltaTime;
-            float progress = elapsedTime / duration;
-            
-            // Use curve for more natural movement
-            float curveProgress = currentCurve.Evaluate(progress);
-            
-            // Interpolate position
-            Vector3 currentPos = Vector3.Lerp(startPos, endPos, progress);
-            
-            // Add curve-based height adjustment for more natural flight arc
-            if (isTakeoff)
-            {
-                currentPos.y = Mathf.Lerp(startPos.y, endPos.y, curveProgress);
-            }
-            else
-            {
-                currentPos.y = Mathf.Lerp(startPos.y, endPos.y, curveProgress);
-            }
-            
-            transform.position = currentPos;
-            
-            // Rotate towards movement direction
-            Vector3 direction = (endPos - startPos).normalized;
-            if (direction.magnitude > 0.1f)
-            {
-                Quaternion targetRotation = Quaternion.LookRotation(direction);
-                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-            }
-            
-            yield return null;
-        }
-        
-        // Ensure we end up exactly at the end position
-        transform.position = endPos;
-        
-        // Re-enable agent movement
-        agent.updatePosition = true;
-        agent.updateRotation = true;
-        
-        // Complete the link traversal
-        agent.CompleteOffMeshLink();
-        
-        // Update surface state
-        isOnGround = endPos.y < 2f; // Adjust threshold as needed
-        
-        isTraversingLink = false;
-        
-        // Reset timers
-        timer = 0f;
-        groundTimer = 0f;
+        flySpeed = speed;
     }
     
-    // Optional: Visual debugging
-    void OnDrawGizmosSelected()
+    public BirdState GetCurrentState()
     {
-        // Draw wander radius
-        Gizmos.color = Color.blue;
-        Gizmos.DrawWireSphere(transform.position, wanderRadius);
-        
-        if (agent != null)
+        return currentState;
+    }
+    
+    void OnDrawGizmos()
+    {
+        // Draw circular flight path
+        Gizmos.color = Color.white;
+        if (Application.isPlaying)
         {
-            // Draw destination
+            // Draw circle
+            for (int i = 0; i < 32; i++)
+            {
+                float angle1 = (i / 32f) * 2f * Mathf.PI;
+                float angle2 = ((i + 1) / 32f) * 2f * Mathf.PI;
+                
+                Vector3 point1 = circleCenter + new Vector3(Mathf.Cos(angle1) * circleRadius, 0, Mathf.Sin(angle1) * circleRadius);
+                Vector3 point2 = circleCenter + new Vector3(Mathf.Cos(angle2) * circleRadius, 0, Mathf.Sin(angle2) * circleRadius);
+                
+                Gizmos.DrawLine(point1, point2);
+            }
+        }
+        
+        // Draw current target and approach
+        if (currentTarget != null)
+        {
+            // Draw approach point
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawWireSphere(approachPoint, 2f);
+            
+            // Draw approach path - straight line from approach point to landing spot
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawLine(approachPoint, currentTarget.position);
+            
+            // Draw final landing approach - NO separate line, it's the same
             Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(targetPosition, 0.5f);
-            
-            // Draw path
-            if (agent.hasPath)
+            Gizmos.DrawWireSphere(currentTarget.position, 0.5f);
+        }
+        
+        // Draw all landing spots
+        if (landingSpots != null)
+        {
+            for (int i = 0; i < landingSpots.Length; i++)
             {
-                Gizmos.color = Color.green;
-                Vector3[] corners = agent.path.corners;
-                for (int i = 0; i < corners.Length - 1; i++)
+                if (landingSpots[i] != null)
                 {
-                    Gizmos.DrawLine(corners[i], corners[i + 1]);
+                    Gizmos.color = (i == currentLandingIndex) ? Color.green : Color.blue;
+                    Gizmos.DrawWireSphere(landingSpots[i].position, 0.3f);
                 }
             }
         }
