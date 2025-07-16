@@ -1,0 +1,84 @@
+using UnityEngine;
+
+public class PlayerMovement : MonoBehaviour
+{
+    [Header("Movement Settings")]
+    [SerializeField] private float walkSpeed = 5f;
+    [SerializeField] private float runSpeed = 8f;
+    [SerializeField] private float jumpForce = 5f;
+    [SerializeField] private float gravity = -9.81f;
+    [SerializeField] private float groundCheckDistance = 0.4f;
+
+    [Header("Ground Check")]
+    [SerializeField] private LayerMask groundMask;
+
+    private CharacterController controller;
+    private Vector3 velocity;
+    private bool isGrounded;
+    private float currentSpeed;
+
+    private void Start()
+    {
+        controller = GetComponent<CharacterController>();
+        currentSpeed = walkSpeed;
+    }
+
+    private void Update()
+    {
+        GroundCheck();
+        HandleMovement();
+        HandleJump();
+        ApplyGravity();
+    }
+
+    private void GroundCheck()
+    {
+        // Check if player is grounded
+        isGrounded = Physics.CheckSphere(transform.position, groundCheckDistance, groundMask);
+
+        // Reset vertical velocity when grounded
+        if (isGrounded && velocity.y < 0)
+        {
+            velocity.y = -2f;
+        }
+    }
+
+    private void HandleMovement()
+    {
+        // Get input axes
+        float horizontal = Input.GetAxis("Horizontal");
+        float vertical = Input.GetAxis("Vertical");
+
+        // Create movement direction
+        Vector3 movement = transform.right * horizontal + transform.forward * vertical;
+
+        // Handle running
+        if (Input.GetKey(KeyCode.LeftShift))
+        {
+            currentSpeed = runSpeed;
+        }
+        else
+        {
+            currentSpeed = walkSpeed;
+        }
+
+        // Apply movement
+        controller.Move(movement * currentSpeed * Time.deltaTime);
+    }
+
+    private void HandleJump()
+    {
+        // Jump when grounded and space is pressed
+        if (Input.GetButtonDown("Jump") && isGrounded)
+        {
+            velocity.y = Mathf.Sqrt(jumpForce * -2f * gravity);
+        }
+    }
+
+    private void ApplyGravity()
+    {
+        // Apply gravity
+        velocity.y += gravity * Time.deltaTime;
+        controller.Move(velocity * Time.deltaTime);
+    }
+}
